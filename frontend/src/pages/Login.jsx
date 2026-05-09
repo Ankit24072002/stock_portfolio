@@ -5,6 +5,9 @@ import api from "../api/api";
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [otpMode, setOtpMode] = useState(false);
+  const [otpInput, setOtpInput] = useState({ identifier: "", otp: "" });
+  const [otpRequested, setOtpRequested] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -14,6 +17,10 @@ const Login = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleOtpChange = (e) => {
+    setOtpInput({ ...otpInput, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -35,6 +42,59 @@ const Login = () => {
       const serverMessage = err.response?.data?.message;
       const serverError = err.response?.data?.error;
       setError(serverError ? `${serverMessage}: ${serverError}` : serverMessage || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const identifier = otpInput.identifier.trim();
+      if (!identifier) {
+        setError("Enter your email or phone number to request OTP");
+        return;
+      }
+
+      const body = identifier.includes("@") ? { email: identifier } : { phone: identifier };
+      await api.post("/auth/request-otp", body);
+      setOtpRequested(true);
+      setMessage("OTP sent. Check your email or phone.");
+    } catch (err) {
+      const serverMessage = err.response?.data?.message;
+      const serverError = err.response?.data?.error;
+      setError(serverError ? `${serverMessage}: ${serverError}` : serverMessage || "OTP request failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const identifier = otpInput.identifier.trim();
+      const otp = otpInput.otp.trim();
+      if (!identifier || !otp) {
+        setError("Enter your email/phone and OTP to verify");
+        return;
+      }
+
+      const body = identifier.includes("@") ? { email: identifier, otp } : { phone: identifier, otp };
+      const response = await api.post("/auth/verify-otp", body);
+      login(response.data.user, response.data.token, true);
+      navigate("/");
+    } catch (err) {
+      const serverMessage = err.response?.data?.message;
+      const serverError = err.response?.data?.error;
+      setError(serverError ? `${serverMessage}: ${serverError}` : serverMessage || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -83,51 +143,120 @@ const Login = () => {
             {error && <div className="rounded-2xl bg-red-100 px-4 py-3 text-sm font-medium text-red-700 mb-5">{error}</div>}
             {message && <div className="rounded-2xl bg-cyan-100 px-4 py-3 text-sm font-medium text-cyan-900 mb-5">{message}</div>}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <label className="block">
-                <span className="text-sm text-slate-300">Email</span>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="name@company.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm text-slate-300">Password</span>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="********"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
-                  required
-                />
-              </label>
-              <div className="flex items-center justify-between">
-                <label className="inline-flex items-center gap-3 text-sm text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-400"
-                  />
-                  Remember me
-                </label>
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpMode(false);
+                    setError("");
+                    setMessage("");
+                    setOtpRequested(false);
+                  }}
+                  className={`w-full rounded-3xl px-4 py-3 text-sm font-semibold transition ${otpMode ? "bg-slate-800 text-white" : "bg-cyan-400 text-slate-950"}`}
+                >
+                  Password login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpMode(true);
+                    setError("");
+                    setMessage("");
+                    setOtpRequested(false);
+                  }}
+                  className={`w-full rounded-3xl px-4 py-3 text-sm font-semibold transition ${otpMode ? "bg-cyan-400 text-slate-950" : "bg-slate-800 text-white"}`}
+                >
+                  OTP login
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-3xl bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-3 text-base font-semibold text-slate-950 transition hover:from-blue-400 hover:to-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
+              {otpMode ? (
+                <form onSubmit={otpRequested ? handleVerifyOtp : handleRequestOtp} className="space-y-5">
+                  <label className="block">
+                    <span className="text-sm text-slate-300">Email or Phone</span>
+                    <input
+                      type="text"
+                      name="identifier"
+                      placeholder="name@company.com or +1234567890"
+                      value={otpInput.identifier}
+                      onChange={handleOtpChange}
+                      className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
+                      required
+                    />
+                  </label>
+
+                  {otpRequested && (
+                    <label className="block">
+                      <span className="text-sm text-slate-300">OTP</span>
+                      <input
+                        type="text"
+                        name="otp"
+                        placeholder="Enter 6-digit OTP"
+                        value={otpInput.otp}
+                        onChange={handleOtpChange}
+                        className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
+                        required
+                      />
+                    </label>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-3xl bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-3 text-base font-semibold text-slate-950 transition hover:from-blue-400 hover:to-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? "Processing..." : otpRequested ? "Verify OTP" : "Request OTP"}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <label className="block">
+                    <span className="text-sm text-slate-300">Email</span>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="name@company.com"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
+                      required
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm text-slate-300">Password</span>
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="********"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="mt-2 w-full rounded-3xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
+                      required
+                    />
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="inline-flex items-center gap-3 text-sm text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-400"
+                      />
+                      Remember me
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-3xl bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-3 text-base font-semibold text-slate-950 transition hover:from-blue-400 hover:to-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? "Signing in..." : "Sign in"}
+                  </button>
+                </form>
+              )}
+            </div>
 
             <p className="mt-6 text-center text-sm text-slate-500">
               New here?{' '}

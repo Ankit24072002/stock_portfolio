@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, unique: true, sparse: true },
     password: { type: String, required: true },
     balance: { type: Number, default: 100000 },
+    otpCode: { type: String },
+    otpExpiresAt: { type: Date },
   },
   { timestamps: true }
 );

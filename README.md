@@ -130,7 +130,8 @@ CORS_ORIGIN=http://localhost:3000
 npm run dev
 ```
 
-Server will run on `http://localhost:5000`
+Backend Server will run on `http://localhost:5000` || https://stock-portfolio-6q6o.onrender.com
+Frontend Server Will run on 'http://localhost:3000' || https://stock-portfolio-1-ravm.onrender.com
 
 ### Frontend Setup
 
